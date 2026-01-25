@@ -1,65 +1,102 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import ttk, messagebox
 
-def add_task(event=None):
-    # UX Principle: "Forgiveness" & "Error Prevention"
-    # We check if the input is empty to prevent bad data.
-    task = task_entry.get()
-    if task != "":
-        listbox.insert(tk.END, task)
-        task_entry.delete(0, tk.END)  # Clear the box so they can type again immediately
-    else:
-        messagebox.showwarning("Warning", "You must enter a task first!")
+class BudgetApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("My Budget App")
+        self.root.geometry("400x550")
 
-def delete_task():
-    # UX Principle: Handling selection
-    try:
-        # Get the index of the currently selected item
-        selected_task_index = listbox.curselection()[0]
-        listbox.delete(selected_task_index)
-    except IndexError:
-        # UX Principle: Feedback
-        # If they click delete without selecting anything, tell them why it failed.
-        messagebox.showwarning("Warning", "Please select a task to delete.")
+        self.current_balance = 0.0
+        
+        self.setup_gui()
 
-# --- 1. SETUP THE MAIN WINDOW ---
+    def setup_gui(self):
+        # 1. Top Section - Balance
+        top_frame = tk.Frame(self.root, pady=10)
+        top_frame.pack()
+
+        tk.Label(top_frame, text="My Balance").pack()
+        
+        self.balance_label = tk.Label(top_frame, text="£0.00", font=("Arial", 24, "bold"), fg="blue")
+        self.balance_label.pack()
+
+        # 2. Middle Section - Inputs (Money)
+        input_frame = tk.Frame(self.root, pady=10, padx=10)
+        input_frame.pack(fill=tk.X)
+
+        tk.Label(input_frame, text="Item Name:").pack(anchor="w")
+        self.item_entry = tk.Entry(input_frame)
+        self.item_entry.pack(fill=tk.X)
+
+        tk.Label(input_frame, text="Cost/Amount (£):").pack(anchor="w")
+        self.amount_entry = tk.Entry(input_frame)
+        self.amount_entry.pack(fill=tk.X)
+
+        tk.Label(input_frame, text="Type:").pack(anchor="w")
+        self.type_var = tk.StringVar()
+        
+        # Dropdown box to choose Expense or Income
+        self.type_box = ttk.Combobox(input_frame, textvariable=self.type_var, state="readonly")
+        self.type_box['values'] = ("Expense", "Income")
+        self.type_box.current(0)
+        self.type_box.pack(fill=tk.X, pady=5)
+
+        # Buttons
+        tk.Button(input_frame, text="Add Item", bg="green", fg="white", command=self.add_item).pack(fill=tk.X, pady=5)
+        tk.Button(input_frame, text="Reset", bg="orange", command=self.reset_app).pack(fill=tk.X)
+
+        # 3. Bottom Section - List
+        tk.Label(self.root, text="Transaction History", font=("Arial", 12, "bold")).pack(pady=5)
+        
+        # Using a simple Listbox is easier than a Table
+        self.history_list = tk.Listbox(self.root, height=10)
+        self.history_list.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+    def add_item(self):
+        name = self.item_entry.get()
+        cost = self.amount_entry.get()
+        trans_type = self.type_var.get()
+
+        # Simple check to make sure they typed something
+        if name == "" or cost == "":
+            messagebox.showwarning("Error", "Please fill in all boxes")
+            return
+
+        # Check if the cost is a number
+        try:
+            cost_value = float(cost)
+        except:
+            messagebox.showerror("Error", "Amount must be a number")
+            return
+
+        # Calculate new balance and add to list
+        if trans_type == "Expense":
+            self.current_balance -= cost_value
+            # Create a string like: "Book : -£20.0 (Expense)"
+            display_text = f"{name} : -£{cost_value} (Expense)"
+            self.history_list.insert(0, display_text) # Add to top
+            self.history_list.itemconfig(0, {'fg': 'red'}) # Color it red
+        else:
+            self.current_balance += cost_value
+            display_text = f"{name} : +£{cost_value} (Income)"
+            self.history_list.insert(0, display_text)
+            self.history_list.itemconfig(0, {'fg': 'green'}) # Color it green
+
+        # Update the big number at the top
+        self.balance_label.config(text=f"£{self.current_balance:.2f}")
+        
+        # Clear the boxes so we can type again
+        self.item_entry.delete(0, tk.END)
+        self.amount_entry.delete(0, tk.END)
+
+    def reset_app(self):
+        # Clear everything
+        self.current_balance = 0.0
+        self.balance_label.config(text="£0.00")
+        self.history_list.delete(0, tk.END)
+
+# Start the program
 root = tk.Tk()
-root.title("My Daily Task Manager")
-root.geometry("400x450")
-root.configure(bg="#f0f0f0") # Light gray background is easier on the eyes
-
-# --- 2. CREATE WIDGETS (The Design) ---
-
-# Title Label
-header_label = tk.Label(root, text="To-Do List", font=("Helvetica", 16, "bold"), bg="#f0f0f0")
-header_label.pack(pady=10)
-
-# Input Field (Where user types)
-task_entry = tk.Entry(root, width=30, font=("Helvetica", 12))
-task_entry.pack(pady=5)
-
-# UX Feature: Allow pressing "Enter" key to add task (Efficiency)
-task_entry.bind('<Return>', add_task)
-
-# Add Button
-add_button = tk.Button(root, text="Add Task", width=20, command=add_task, bg="#4CAF50", fg="white")
-add_button.pack(pady=5)
-
-# Listbox with Scrollbar (Essential for Usability if list gets long)
-frame = tk.Frame(root)
-frame.pack(pady=10)
-
-scrollbar = tk.Scrollbar(frame)
-scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-listbox = tk.Listbox(frame, width=35, height=10, font=("Helvetica", 12), yscrollcommand=scrollbar.set)
-listbox.pack(side=tk.LEFT, fill=tk.BOTH)
-
-scrollbar.config(command=listbox.yview)
-
-# Delete Button
-delete_button = tk.Button(root, text="Delete Selected", width=20, command=delete_task, bg="#FF5733", fg="white")
-delete_button.pack(pady=10)
-
-# --- 3. START THE APP ---
+app = BudgetApp(root)
 root.mainloop()
